@@ -1,0 +1,22 @@
+{
+  "name": "batalha-naval",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "./server.js",
+    "test": "error: no test specified\" && exit 1cho \"E"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Samuka-Vey/batalha-naval.git"
+  },
+  "keywords": [],
+  "author": "Marcos Samuel Cornelio Barros",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Samuka-Vey/batalha-naval/issues"
+  },
+  "homepage": "https://github.com/Samuka-Vey/batalha-naval#readme"
+}
