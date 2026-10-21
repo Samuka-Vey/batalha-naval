@@ -116,20 +116,34 @@ COMANDO arg1 arg2 ...\n
 ### Exemplo de conversa
 
 ```
-Cliente                         Servidor
-   │ ◄──────── OK Conectado. Envie: ENTRAR <nome>
-   │ ENTRAR Ana ─────────────────────►
-   │ ◄──────── OK Ola, Ana! Descubra a palavra
-   │ ◄──────── ESTADO ____ 0 6
-   │ LETRA e ────────────────────────►
-   │ ◄──────── ESTADO _E_E 0 6
-   │ LETRA z ────────────────────────►
-   │ ◄──────── ESTADO _E_E 1 6
-   │ LETRA e ────────────────────────►
-   │ ◄──────── ERRO 104 Letra ja tentada
-   │ SAIR ───────────────────────────►
-   │ ◄──────── OK Ate logo
-   │ ◄──────── (FIM da conexão TCP)
+      CLIENTE                                            SERVIDOR
+          │                                                 │
+          │ ◄──────────── OK Conectado. Envie: ENTRAR <nome>|
+          │                                                 │
+          │ ─────────────── ENTRAR Dolinho ───────────────► │
+          │                                                 │
+          │ ◄────────── OK Ola, Dolinho! Descubra a palavra |
+          │                                                 │
+          │ ◄────────────── ESTADO ____ 0 6                 │
+          │                                                 │
+          │ ─────────────── LETRA e ─────────────────►      │
+          │                                                 │
+          │ ◄────────────── ESTADO _E_E 0 6                 │
+          │                                                 │
+          │ ─────────────── LETRA z ─────────────────►      │
+          │                                                 │
+          │ ◄────────────── ESTADO _E_E 1 6                 │
+          │                                                 │
+          │ ─────────────── LETRA e ─────────────────►      │
+          │                                                 │
+          │ ◄────────────── ERRO 104 Letra ja tentada       │
+          │                                                 │
+          │ ─────────────── SAIR ────────────────────►      │
+          │                                                 │
+          │ ◄────────────── OK Ate logo                     │
+          │                                                 │
+          │ ◄ - - - - - - FIM da conexão TCP - - - -        │
+          │                                                 │
 ```
 
 ## 6. Tratamento de erros
@@ -225,11 +239,6 @@ _Observações para completar:_ explique em 2 ou 3 linhas cada print (portas de 
 - O protocolo é textual e sem criptografia: o conteúdo (inclusive a palavra revelada ao fim da rodada) aparece em texto claro no Wireshark.
 - Não há autenticação nem persistência de pontuação.
 - O servidor não limita o número de conexões simultâneas.
-
-## 12. Funcionalidades extras (desafio extra)
-
-- Múltiplos clientes simultâneos, cada um com seu estado.
-- Logs no servidor de conexões, mensagens recebidas e desconexões.
 
 ## Referência
 
