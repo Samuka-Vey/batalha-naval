@@ -70,6 +70,8 @@ const servidor = net.createServer((socket) => {
     // Exibe o Buffer original
     console.log('[BUFFER]', dados);
 
+    
+
     // Exibe cada byte em decimal
     console.log('[DECIMAL]', [...dados]);
 
