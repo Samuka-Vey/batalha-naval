@@ -106,12 +106,13 @@ COMANDO arg1 arg2 ...\n
 
 ### Códigos de erro
 
-| Código | Significado |
-|---|---|
-| `100` | Comando desconhecido |
-| `101` | Argumentos inválidos (quantidade errada ou não é uma única letra A-Z) |
-| `103` | Ação não permitida (jogar antes de `ENTRAR`) |
-| `104` | Letra já tentada |
+| Código | Significado | Situações em que ocorre | Fecha a conexão? |
+|---|---|---|---|
+| `100` | Comando desconhecido | Primeira palavra da linha não é `ENTRAR`, `LETRA` ou `SAIR` | Não |
+| `101` | Argumentos inválidos | Quantidade errada de argumentos, nome inválido, letra fora de A-Z ou mensagem acima de 1024 caracteres | Só no caso de mensagem longa |
+| `102` | Jogador já autenticado | `ENTRAR` enviado mais de uma vez na mesma conexão | Não |
+| `103` | Ação não permitida | `LETRA` antes de `ENTRAR`, ou encerramento por inatividade | Só no caso de inatividade |
+| `104` | Letra já tentada | `LETRA` repetida (não conta como erro) | Não |
 
 ### Exemplo de conversa
 
@@ -148,19 +149,27 @@ COMANDO arg1 arg2 ...\n
 
 ## 6. Tratamento de erros
 
+## 6. Tratamento de erros
+ 
 | Situação | Onde ocorre | Como é tratada |
 |---|---|---|
 | Comando desconhecido | Aplicação | Servidor responde `ERRO 100` e mantém a conexão |
 | Argumentos inválidos | Aplicação | Servidor responde `ERRO 101` |
+| Nome de jogador inválido | Aplicação | Servidor responde `ERRO 101`; o jogador pode tentar `ENTRAR` de novo |
+| `ENTRAR` repetido | Aplicação | Servidor responde `ERRO 102` e preserva a rodada em andamento |
 | Jogar sem `ENTRAR` | Aplicação | Servidor responde `ERRO 103` |
 | Letra repetida | Aplicação | Servidor responde `ERRO 104` sem contar erro |
 | Mensagem colada ou partida pelo TCP | Transporte | Buffer com delimitador `\n` reconstrói as mensagens |
+| Mensagem maior que 1024 caracteres sem `\n` | Aplicação | Proteção contra consumo excessivo de memória: servidor responde `ERRO 101`, descarta o buffer e fecha a conexão |
+| Cliente inativo por 60 segundos | Servidor | Evento `timeout`: servidor envia `ERRO 103` e fecha a conexão, liberando o socket |
+| Escrita em socket já fechado | Servidor | `enviar` verifica `destroyed` e `writable` antes de escrever, evitando exceção |
 | Servidor offline ou porta errada | Cliente | Evento `error` (`ECONNREFUSED`): mensagem clara e encerramento sem quebrar |
 | Servidor inalcançável | Cliente | Evento `error` (`ETIMEDOUT`): mensagem clara |
+| Servidor não responde | Cliente | Timeout de 10 segundos: mensagem clara e conexão encerrada |
 | Queda abrupta do cliente | Servidor | Evento `error` (`ECONNRESET`) tratado e `close` registrado; os demais jogadores não são afetados |
 | Servidor cai com cliente conectado | Cliente | Evento `close`: informa o encerramento |
 | Porta já em uso | Servidor | Erro `EADDRINUSE` tratado com mensagem e saída limpa |
-
+ 
 Regra principal: **o servidor nunca deve cair por causa do comportamento de um cliente.**
 
 ## 7. Estrutura do projeto
@@ -217,7 +226,6 @@ Captura feita com filtro `tcp.port == 5000` (interface de loopback para teste lo
 | Encerramento | `FIN` (com `SAIR`) ou `RST` (fechando o terminal à força) | _inserir print_ |
 | Captura completa | Arquivo `.pcapng` | `captura.pcapng` |
 
-_Observações para completar:_ explique em 2 ou 3 linhas cada print (portas de origem/destino, flags TCP, conteúdo da aplicação visível no payload).
 
 ## 10. Respostas às perguntas do projeto
 
