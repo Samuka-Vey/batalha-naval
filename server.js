@@ -19,6 +19,7 @@ const PALAVRAS = [
 ];
 
 const MAX_ERROS = 6;
+const TIMEOUT_INATIVIDADE = 60000; // 60 segundos sem atividade
 const sortearPalavra = () =>
   PALAVRAS[Math.floor(Math.random() * PALAVRAS.length)];
 
@@ -35,7 +36,19 @@ const servidor = net.createServer((socket) => {
     erros: 0,
   };
 
-  const enviar = (...partes) => socket.write(montar(...partes));
+  // Só escreve se o socket ainda estiver aberto
+  const enviar = (...partes) => {
+    if (socket.destroyed || !socket.writable) return;
+    socket.write(montar(...partes));
+  };
+
+  // Encerra clientes inativos
+  socket.setTimeout(TIMEOUT_INATIVIDADE);
+  socket.on('timeout', () => {
+    console.log(`[SERVIDOR] #${id} inativo, encerrando`);
+    enviar(CMD.ERRO, ERRO.ACAO_NAO_PERMITIDA, 'Inatividade, encerrando');
+    socket.end();
+  });
 
   // A palavra mascarada: letras descobertas aparecem,
   // o restante vira "_"
@@ -63,102 +76,107 @@ const servidor = net.createServer((socket) => {
 
   enviar(CMD.OK, 'Conectado. Envie: ENTRAR <nome>');
 
-  // VISUALIZAÇÃO DOS BYTES ORIGINAIS RECEBIDOS PELO SOCKET
-  socket.on('data', (dados) => {
-    console.log('\n========== BYTES RECEBIDOS ==========');
-
-    // Exibe o Buffer original
-    console.log('[BUFFER]', dados);
-
-    
-
-    // Exibe cada byte em decimal
-    console.log('[DECIMAL]', [...dados]);
-
-    // Exibe os bytes em hexadecimal
-    console.log('[HEX]', dados.toString('hex'));
-
-    console.log('=====================================\n');
-  });
-
   // LEITURA E PROCESSAMENTO DAS MENSAGENS DO PROTOCOLO
   socket.on(
     'data',
-    criarLeitor((linha) => {
-      console.log(`[SERVIDOR] #${id} >> ${linha}`);
+    criarLeitor(
+      (linha) => {
+        console.log(`[SERVIDOR] #${id} >> ${linha}`);
 
-      const msg = interpretar(linha);
+        const msg = interpretar(linha);
 
-      if (msg.erro) {
-        const texto =
-          msg.erro === ERRO.COMANDO_DESCONHECIDO
-            ? 'Comando desconhecido'
-            : 'Argumentos invalidos';
+        if (msg.erro) {
+          const texto =
+            msg.erro === ERRO.COMANDO_DESCONHECIDO
+              ? 'Comando desconhecido'
+              : 'Argumentos invalidos';
 
-        return enviar(CMD.ERRO, msg.erro, texto);
-      }
-
-      switch (msg.comando) {
-        case CMD.ENTRAR:
-          jogador.nome = msg.args[0];
-
-          enviar(CMD.OK, `Ola, ${jogador.nome}! Descubra a palavra`);
-
-          novaRodada();
-          break;
-
-        case CMD.LETRA: {
-          if (!jogador.nome) {
-            return enviar(
-              CMD.ERRO,
-              ERRO.ACAO_NAO_PERMITIDA,
-              'Envie ENTRAR primeiro'
-            );
-          }
-
-          const letra = msg.args[0].toUpperCase();
-
-          if (!/^[A-Z]$/.test(letra)) {
-            return enviar(
-              CMD.ERRO,
-              ERRO.ARGUMENTOS_INVALIDOS,
-              'Envie uma unica letra de A a Z'
-            );
-          }
-
-          if (jogador.tentadas.has(letra)) {
-            return enviar(
-              CMD.ERRO,
-              ERRO.LETRA_REPETIDA,
-              'Letra ja tentada'
-            );
-          }
-
-          jogador.tentadas.add(letra);
-
-          if (!jogador.palavra.includes(letra)) {
-            jogador.erros++;
-          }
-
-          if (!mascara().includes('_')) {
-            enviar(CMD.VITORIA, jogador.palavra);
-            novaRodada();
-          } else if (jogador.erros >= MAX_ERROS) {
-            enviar(CMD.DERROTA, jogador.palavra);
-            novaRodada();
-          } else {
-            enviarEstado();
-          }
-
-          break;
+          return enviar(CMD.ERRO, msg.erro, texto);
         }
 
-        case CMD.SAIR:
-          enviar(CMD.OK, 'Ate logo');
-          socket.end();
-          break;
+        switch (msg.comando) {
+          case CMD.ENTRAR: {
+            if (jogador.nome) {
+              return enviar(CMD.ERRO, ERRO.JA_AUTENTICADO, 'Voce ja entrou');
+            }
+
+            const nome = msg.args[0];
+
+            if (!/^[A-Za-z0-9_]{1,20}$/.test(nome)) {
+              return enviar(
+                CMD.ERRO,
+                ERRO.ARGUMENTOS_INVALIDOS,
+                'Nome: 1 a 20 caracteres (letras, numeros, _)'
+              );
+            }
+
+            jogador.nome = nome;
+
+            enviar(CMD.OK, `Ola, ${jogador.nome}! Descubra a palavra`);
+
+            novaRodada();
+            break;
+          }
+
+          case CMD.LETRA: {
+            if (!jogador.nome) {
+              return enviar(
+                CMD.ERRO,
+                ERRO.ACAO_NAO_PERMITIDA,
+                'Envie ENTRAR primeiro'
+              );
+            }
+
+            const letra = msg.args[0].toUpperCase();
+
+            if (!/^[A-Z]$/.test(letra)) {
+              return enviar(
+                CMD.ERRO,
+                ERRO.ARGUMENTOS_INVALIDOS,
+                'Envie uma unica letra de A a Z'
+              );
+            }
+
+            if (jogador.tentadas.has(letra)) {
+              return enviar(
+                CMD.ERRO,
+                ERRO.LETRA_REPETIDA,
+                'Letra ja tentada'
+              );
+            }
+
+            jogador.tentadas.add(letra);
+
+            if (!jogador.palavra.includes(letra)) {
+              jogador.erros++;
+            }
+
+            if (!mascara().includes('_')) {
+              enviar(CMD.VITORIA, jogador.palavra);
+              novaRodada();
+            } else if (jogador.erros >= MAX_ERROS) {
+              enviar(CMD.DERROTA, jogador.palavra);
+              novaRodada();
+            } else {
+              enviarEstado();
+            }
+
+            break;
+          }
+
+          case CMD.SAIR:
+            enviar(CMD.OK, 'Ate logo');
+            socket.end();
+            break;
+        }
+      },
+      () => {
+        // aoEstourar: cliente mandou dados demais sem '\n'
+        console.log(`[SERVIDOR] #${id} mensagem acima do limite, encerrando`);
+        enviar(CMD.ERRO, ERRO.ARGUMENTOS_INVALIDOS, 'Mensagem muito longa');
+        socket.end();
       }
-    })
+    )
   );
 
   socket.on('close', () => {
