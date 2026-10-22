@@ -8,6 +8,7 @@ export const CMD = {
 export const ERRO = {
   COMANDO_DESCONHECIDO: 100,
   ARGUMENTOS_INVALIDOS: 101,
+  JA_AUTENTICADO: 102,
   ACAO_NAO_PERMITIDA: 103,
   LETRA_REPETIDA: 104,
 };
@@ -32,10 +33,18 @@ export function interpretar(linha) {
 }
 
 // TCP é fluxo de bytes: o buffer reconstrói as mensagens usando o '\n'
-export function criarLeitor(aoReceberLinha) {
+// protocolo.js
+const MAX_BUFFER = 1024;
+
+export function criarLeitor(aoReceberLinha, aoEstourar) {
   let buffer = '';
   return (dados) => {
     buffer += dados.toString();
+    if (buffer.length > MAX_BUFFER) {
+      buffer = '';
+      if (aoEstourar) aoEstourar();
+      return;
+    }
     let pos;
     while ((pos = buffer.indexOf(DELIMITADOR)) !== -1) {
       const linha = buffer.slice(0, pos);
